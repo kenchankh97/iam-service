@@ -1,9 +1,8 @@
 # Authentik Server Dockerfile for Railway deployment
-# Uses the official Authentik image without modifying entrypoint
-
 FROM ghcr.io/goauthentik/server:2024.10.4
 
-# Expose the default Authentik port
-EXPOSE 9000
+# Set environment variable for Railway's dynamic port
+ENV AUTHENTIK_LISTEN__HTTP=0.0.0.0:${PORT:-9000}
 
-# Don't override ENTRYPOINT or CMD - use the base image defaults
+# Expose port
+EXPOSE ${PORT:-9000}
