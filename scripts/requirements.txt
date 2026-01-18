@@ -1,0 +1,4 @@
+# Requirements for migration scripts
+mysql-connector-python>=8.0.0
+requests>=2.28.0
+python-dotenv>=1.0.0
