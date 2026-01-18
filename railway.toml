@@ -3,7 +3,7 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "server"
+# Don't override the start command - let Docker handle it
 healthcheckPath = "/-/health/live/"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
