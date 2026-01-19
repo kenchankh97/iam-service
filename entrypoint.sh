@@ -17,10 +17,6 @@ echo "Updated AUTHENTIK_LISTEN__HTTP to: ${AUTHENTIK_LISTEN__HTTP}"
 echo "Running database migrations..."
 python -m lifecycle.migrate
 
-# Apply default blueprints (creates default flows, policies, etc.)
-echo "Applying default blueprints..."
-ak apply_blueprints
-
-# Start the server
+# Start the server (blueprints are applied automatically on startup)
 echo "Starting Authentik server on port ${PORT:-9000}..."
 exec python -m lifecycle.ak server
