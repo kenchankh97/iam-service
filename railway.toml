@@ -3,7 +3,11 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-# Disable healthcheck temporarily to see actual error logs
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 numReplicas = 1
+
+# Railway sets PORT dynamically
+# We need to configure Authentik via environment variables in Railway UI:
+# AUTHENTIK_LISTEN__HTTP = 0.0.0.0:${{PORT}}
+# AUTHENTIK_LISTEN__HTTPS = (leave empty)
