@@ -1,9 +1,6 @@
 # Authentik Server Dockerfile for Railway deployment
 FROM ghcr.io/goauthentik/server:2024.10.4
 
-# Railway injects PORT at runtime, Authentik needs to listen on it
-# Set the script with proper permissions during COPY (--chmod flag)
-COPY --chmod=755 start.sh /start.sh
-
-# Default command - Railway will set PORT env var
-CMD ["/start.sh"]
+# Use shell form CMD to allow environment variable expansion at runtime
+# Railway sets PORT dynamically, we configure Authentik to listen on it
+CMD AUTHENTIK_LISTEN__HTTP="0.0.0.0:${PORT:-9000}" AUTHENTIK_LISTEN__HTTPS="" /usr/local/bin/ak server
