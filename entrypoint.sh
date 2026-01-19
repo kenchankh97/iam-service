@@ -17,13 +17,6 @@ echo "Updated AUTHENTIK_LISTEN__HTTP to: ${AUTHENTIK_LISTEN__HTTP}"
 echo "Running database migrations..."
 python -m lifecycle.migrate
 
-# Start the server using gunicorn with explicit bind
+# Start the server using Authentik's lifecycle server which handles Django setup
 echo "Starting Authentik server on port ${PORT:-9000}..."
-exec gunicorn \
-    --bind "0.0.0.0:${PORT:-9000}" \
-    --workers 2 \
-    --worker-class uvicorn.workers.UvicornWorker \
-    --timeout 120 \
-    --access-logfile - \
-    --error-logfile - \
-    authentik.root.asgi:application
+exec python -m lifecycle.ak server
