@@ -18,6 +18,6 @@ echo "Updated AUTHENTIK_LISTEN__HTTP to: ${AUTHENTIK_LISTEN__HTTP}"
 echo "Running database migrations..."
 python -m lifecycle.migrate
 
-# Start the server
+# Start the server using gunicorn (Authentik's production server)
 echo "Starting Authentik server..."
-exec python -m manage server
+exec gunicorn -c /lifecycle/gunicorn.conf.py authentik.root.asgi:application
