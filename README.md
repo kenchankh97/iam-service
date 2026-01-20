@@ -1,36 +1,36 @@
-# IAM Service - Authentik Identity Provider
+# IAM Service - Keycloak Identity Provider
 
-A centralized Identity and Access Management (IAM) service powered by [Authentik](https://goauthentik.io/), providing authentication and authorization for multiple applications.
+A centralized Identity and Access Management (IAM) service powered by [Keycloak](https://www.keycloak.org/), providing authentication and authorization for multiple applications.
 
 ## Features
 
 - **OAuth 2.0 / OpenID Connect** - Industry-standard authentication protocols
 - **Single Sign-On (SSO)** - One login for all applications
-- **Multi-factor Authentication** - TOTP, WebAuthn, SMS
-- **Role-Based Access Control** - Flexible group and role management
+- **Multi-factor Authentication** - TOTP, WebAuthn
+- **Role-Based Access Control** - Flexible realm roles and client roles
 - **User Management** - Self-service and admin-managed users
 - **Audit Logging** - Comprehensive security audit trail
+- **Unlimited Users** - No user limit (fully open source)
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    IAM Service (Authentik)                       │
+│                    IAM Service (Keycloak)                        │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │   Server     │  │   Worker     │  │   Outposts   │          │
-│  │  (Main API)  │  │ (Background) │  │  (Optional)  │          │
-│  └──────┬───────┘  └──────┬───────┘  └──────────────┘          │
-│         │                 │                                      │
-│         └────────┬────────┘                                      │
-│                  │                                               │
-│         ┌───────┴───────┐                                       │
-│         │               │                                        │
-│    ┌────┴────┐    ┌────┴────┐                                   │
-│    │ Redis   │    │ Postgres│                                   │
-│    │ (Cache) │    │  (Data) │                                   │
-│    └─────────┘    └─────────┘                                   │
+│  ┌──────────────────────────────────────────────────────┐       │
+│  │              Keycloak Server (Quarkus)               │       │
+│  │  - Admin Console                                     │       │
+│  │  - OAuth2/OIDC Provider                              │       │
+│  │  - User Federation                                   │       │
+│  │  - Identity Brokering                                │       │
+│  └──────────────────┬───────────────────────────────────┘       │
+│                     │                                            │
+│            ┌────────┴────────┐                                  │
+│            │    PostgreSQL   │                                  │
+│            │    (Database)   │                                  │
+│            └─────────────────┘                                  │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -39,7 +39,7 @@ A centralized Identity and Access Management (IAM) service powered by [Authentik
 
 ### Option 1: Railway (Recommended for Demo/Small Scale)
 
-Railway provides a simple PaaS deployment with managed PostgreSQL and Redis.
+Railway provides a simple PaaS deployment with managed PostgreSQL.
 
 #### Prerequisites
 - Railway account (https://railway.app)
@@ -48,39 +48,35 @@ Railway provides a simple PaaS deployment with managed PostgreSQL and Redis.
 #### Deployment Steps
 
 1. **Create a new Railway project**
-   ```bash
-   # Install Railway CLI
-   npm install -g @railway/cli
+   - Go to https://railway.app/new
+   - Select "Deploy from GitHub repo"
+   - Connect this repository
 
-   # Login to Railway
-   railway login
+2. **Add PostgreSQL service**
+   - Click "New" → "Database" → "PostgreSQL"
+   - Railway will auto-provision the database
 
-   # Initialize project
-   railway init
+3. **Configure environment variables in Railway**
+
+   Click on your Keycloak service and add these variables:
+
    ```
-
-2. **Add required services**
-   - Add PostgreSQL service from Railway's template
-   - Add Redis service from Railway's template
-
-3. **Configure environment variables**
-   ```bash
-   # Generate secret key
-   railway variables set AUTHENTIK_SECRET_KEY=$(openssl rand -base64 36)
-
-   # PostgreSQL variables are auto-linked
-   # Redis host needs to be set manually
-   railway variables set REDIS_HOST=<redis-service-name>
+   KC_DB=postgres
+   KC_DB_URL=jdbc:postgresql://${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}
+   KC_DB_USERNAME=${{Postgres.PGUSER}}
+   KC_DB_PASSWORD=${{Postgres.PGPASSWORD}}
+   KC_HOSTNAME=${{RAILWAY_PUBLIC_DOMAIN}}
+   KC_BOOTSTRAP_ADMIN_USERNAME=admin
+   KC_BOOTSTRAP_ADMIN_PASSWORD=YourSecurePassword123!
    ```
 
 4. **Deploy**
-   ```bash
-   railway up
-   ```
+   - Railway will automatically build and deploy
+   - Wait for the deployment to complete (may take 3-5 minutes)
 
-5. **Access initial setup**
-   - Navigate to `https://<your-railway-url>/if/flow/initial-setup/`
-   - Create admin account
+5. **Access Keycloak Admin Console**
+   - Navigate to `https://<your-railway-url>/admin`
+   - Login with admin credentials you set above
 
 ### Option 2: Docker Compose (Self-Hosted)
 
@@ -102,12 +98,7 @@ For production or self-hosted environments with more control.
 2. **Configure environment**
    ```bash
    cp .env.example .env
-
-   # Generate secret key
-   echo "AUTHENTIK_SECRET_KEY=$(openssl rand -base64 36)" >> .env
-   echo "PG_PASS=$(openssl rand -base64 24)" >> .env
-
-   # Edit other settings
+   # Edit .env with your settings
    nano .env
    ```
 
@@ -126,78 +117,104 @@ For production or self-hosted environments with more control.
        ssl_certificate_key /path/to/key.pem;
 
        location / {
-           proxy_pass http://localhost:9000;
+           proxy_pass http://localhost:8080;
            proxy_http_version 1.1;
            proxy_set_header Host $host;
            proxy_set_header X-Real-IP $remote_addr;
            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
            proxy_set_header X-Forwarded-Proto $scheme;
-           proxy_set_header Upgrade $http_upgrade;
-           proxy_set_header Connection "upgrade";
+           proxy_set_header X-Forwarded-Host $host;
        }
    }
    ```
 
-5. **Access initial setup**
-   - Navigate to `https://auth.yourdomain.com/if/flow/initial-setup/`
+5. **Access Admin Console**
+   - Navigate to `https://auth.yourdomain.com/admin`
 
 ## Configuration
 
-### Creating OAuth2/OIDC Provider
+### Creating a Realm for Attendance System
 
-1. **Go to Admin → Applications → Providers**
-2. **Create new OAuth2/OpenID Provider**
-   - Name: `attendance-app-provider`
-   - Authorization flow: `default-authorization-flow`
-   - Client type: `Confidential`
-   - Redirect URIs:
+1. **Login to Admin Console** at `/admin`
+
+2. **Create a new Realm**
+   - Click the realm dropdown (top-left, shows "master")
+   - Click "Create realm"
+   - Name: `attendance`
+   - Click "Create"
+
+3. **Create Client (OAuth2 Application)**
+   - Go to Clients → Create client
+   - Client ID: `attendance-app`
+   - Client Protocol: `openid-connect`
+   - Click "Next"
+   - Client authentication: `On`
+   - Click "Next"
+   - Valid redirect URIs:
      ```
      https://your-app.railway.app/api/auth/callback
      http://localhost:5173/auth/callback
+     http://localhost:3000/api/auth/callback
      attendance://callback
      ```
+   - Web origins: `+` (allows all origins from redirect URIs)
+   - Click "Save"
 
-3. **Create Application**
-   - Name: `Attendance System`
-   - Slug: `attendance-system`
-   - Provider: `attendance-app-provider`
+4. **Get Client Secret**
+   - Go to Clients → attendance-app → Credentials
+   - Copy the Client Secret (you'll need this for your backend)
 
-### Creating Groups
+### Creating Realm Roles
 
-Create these groups in Admin → Directory → Groups:
+Go to Realm roles → Create role:
 
-| Group Name | Attributes | Description |
-|------------|------------|-------------|
-| `iam-administrators` | `{"iam_level": "administrator"}` | Full system access |
-| `iam-users` | `{"iam_level": "user"}` | Standard user access |
-| `attendance-admins` | `{"app": "attendance", "app_role": "admin"}` | Attendance admin access |
-| `attendance-staff` | `{"app": "attendance", "app_role": "staff"}` | Staff mobile access |
-| `attendance-location` | `{"app": "attendance", "app_role": "location"}` | Kiosk access |
+| Role Name | Description |
+|-----------|-------------|
+| `admin` | Full admin access to attendance system |
+| `staff` | Staff user - can clock in/out via mobile |
+| `location` | Location kiosk - can display QR codes |
 
-### Property Mappings
+### Creating Users
 
-Create custom property mappings in Admin → Customization → Property Mappings:
+1. Go to Users → Add user
+2. Fill in details:
+   - Username (email recommended)
+   - Email
+   - First/Last Name
+3. Click "Create"
+4. Go to Credentials tab → Set password
+5. Go to Role mapping → Assign roles
 
-**attendance_roles:**
-```python
-groups = [g.name for g in request.user.ak_groups.all()]
-roles = []
-if 'iam-administrators' in groups or 'attendance-admins' in groups:
-    roles.append('admin')
-if 'attendance-location' in groups:
-    roles.append('location')
-if 'attendance-staff' in groups:
-    roles.append('staff')
-return roles if roles else ['staff']
-```
+### Custom User Attributes
 
-**iam_level:**
-```python
-groups = [g.name for g in request.user.ak_groups.all()]
-if 'iam-administrators' in groups:
-    return 'administrator'
-return 'user'
-```
+Add custom attributes for attendance system:
+
+1. Go to Realm settings → User profile
+2. Add attributes:
+   - `staffNumber` - Staff ID number
+   - `itCode` - IT department code
+   - `teamId` - Team identifier
+   - `locationId` - Assigned location (for location users)
+
+### Adding Attributes to Token
+
+1. Go to Client scopes → Create client scope
+   - Name: `attendance-profile`
+   - Type: `Default`
+
+2. Add mappers:
+   - Click "Add mapper" → "By configuration" → "User Attribute"
+   - Name: `staffNumber`
+   - User Attribute: `staffNumber`
+   - Token Claim Name: `staff_number`
+   - Claim JSON Type: `String`
+   - Add to ID token: `On`
+   - Add to access token: `On`
+
+   Repeat for other attributes.
+
+3. Go to Clients → attendance-app → Client scopes
+   - Add `attendance-profile` to default scopes
 
 ## API Endpoints
 
@@ -205,79 +222,94 @@ Once deployed, the following endpoints are available:
 
 | Endpoint | Description |
 |----------|-------------|
-| `/application/o/authorize/` | OAuth2 Authorization |
-| `/application/o/token/` | OAuth2 Token Exchange |
-| `/application/o/userinfo/` | OpenID Connect UserInfo |
-| `/application/o/<slug>/jwks/` | JWKS Public Keys |
-| `/application/o/<slug>/end-session/` | Logout |
-| `/api/v3/` | Authentik REST API |
-| `/if/admin/` | Admin Interface |
+| `/realms/{realm}/protocol/openid-connect/auth` | OAuth2 Authorization |
+| `/realms/{realm}/protocol/openid-connect/token` | OAuth2 Token Exchange |
+| `/realms/{realm}/protocol/openid-connect/userinfo` | OpenID Connect UserInfo |
+| `/realms/{realm}/protocol/openid-connect/certs` | JWKS Public Keys |
+| `/realms/{realm}/protocol/openid-connect/logout` | Logout |
+| `/admin` | Admin Console |
+
+Replace `{realm}` with your realm name (e.g., `attendance`).
 
 ## Monitoring
 
 ### Health Checks
-- Liveness: `/-/health/live/`
-- Readiness: `/-/health/ready/`
+- Health: `/health`
+- Ready: `/health/ready`
+- Live: `/health/live`
 
 ### Metrics
-Prometheus metrics available at `/-/metrics/` (requires authentication)
+Prometheus metrics available at `/metrics` (if enabled)
 
 ## Backup & Recovery
 
 ### PostgreSQL Backup
 ```bash
 # Backup
-docker exec authentik-postgres pg_dump -U authentik authentik > backup.sql
+docker exec keycloak-postgres pg_dump -U keycloak keycloak > backup.sql
 
 # Restore
-docker exec -i authentik-postgres psql -U authentik authentik < backup.sql
+docker exec -i keycloak-postgres psql -U keycloak keycloak < backup.sql
 ```
 
-### Media Files
+### Export Realm Configuration
 ```bash
-# Backup media directory
-docker cp authentik-server:/media ./media-backup
+# Export realm (from admin console or CLI)
+/opt/keycloak/bin/kc.sh export --dir /tmp/export --realm attendance
 ```
 
 ## Troubleshooting
 
 ### View Logs
 ```bash
-# All services
-docker compose logs -f
+# Docker logs
+docker logs keycloak-server -f
 
-# Specific service
-docker compose logs -f server
+# Railway logs
+railway logs
 ```
 
 ### Common Issues
 
 1. **Database connection failed**
-   - Check PostgreSQL is healthy: `docker compose ps`
-   - Verify credentials in `.env`
+   - Check PostgreSQL is healthy
+   - Verify KC_DB_URL format is correct
+   - Ensure credentials are correct
 
-2. **Redis connection failed**
-   - Check Redis is healthy: `docker compose ps`
-   - Verify REDIS_HOST is correct
+2. **Admin console not loading**
+   - Check KC_HOSTNAME matches your domain
+   - Verify KC_HTTP_ENABLED=true if behind proxy
+   - Check KC_PROXY_HEADERS=xforwarded
 
-3. **HTTPS/SSL issues**
-   - Ensure reverse proxy is configured correctly
-   - Check certificate validity
+3. **Login redirect issues**
+   - Verify redirect URIs in client settings
+   - Check Web Origins setting
 
 ## Security Considerations
 
 - Always use HTTPS in production
-- Rotate `AUTHENTIK_SECRET_KEY` periodically
+- Use strong admin passwords
 - Enable MFA for admin accounts
-- Review audit logs regularly
-- Keep Authentik updated
+- Review audit logs regularly in Events → Admin events
+- Keep Keycloak updated
+
+## Comparison with Other Solutions
+
+| Feature | Keycloak | Authentik | Clerk |
+|---------|----------|-----------|-------|
+| User Limit | Unlimited | Unlimited | 5 (free) |
+| Self-hosted | Yes | Yes | No |
+| License | Apache 2.0 | MIT | Proprietary |
+| Maturity | Very High | Medium | Medium |
+| Resource Usage | Medium-High | Medium | N/A |
+| Enterprise Support | Red Hat | Community | Yes |
 
 ## License
 
-This project uses Authentik which is licensed under the [MIT License](https://github.com/goauthentik/authentik/blob/main/LICENSE).
+Keycloak is licensed under the [Apache License 2.0](https://github.com/keycloak/keycloak/blob/main/LICENSE.txt).
 
 ## Support
 
-- [Authentik Documentation](https://goauthentik.io/docs/)
-- [Authentik GitHub](https://github.com/goauthentik/authentik)
-- [Authentik Discord](https://goauthentik.io/discord)
+- [Keycloak Documentation](https://www.keycloak.org/documentation)
+- [Keycloak GitHub](https://github.com/keycloak/keycloak)
+- [Keycloak Community](https://www.keycloak.org/community)

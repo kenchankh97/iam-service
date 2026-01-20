@@ -6,8 +6,15 @@ dockerfilePath = "Dockerfile"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 numReplicas = 1
+healthcheckPath = "/health"
+healthcheckTimeout = 300
 
 # Railway sets PORT dynamically
-# We need to configure Authentik via environment variables in Railway UI:
-# AUTHENTIK_LISTEN__HTTP = 0.0.0.0:${{PORT}}
-# AUTHENTIK_LISTEN__HTTPS = (leave empty)
+# Keycloak environment variables needed in Railway UI:
+# KC_DB=postgres
+# KC_DB_URL=jdbc:postgresql://${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}
+# KC_DB_USERNAME=${{Postgres.PGUSER}}
+# KC_DB_PASSWORD=${{Postgres.PGPASSWORD}}
+# KC_HOSTNAME=${{RAILWAY_PUBLIC_DOMAIN}}
+# KC_BOOTSTRAP_ADMIN_USERNAME=admin
+# KC_BOOTSTRAP_ADMIN_PASSWORD=<your-secure-password>
