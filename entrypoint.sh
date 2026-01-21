@@ -14,9 +14,11 @@ export KC_HTTP_PORT="${PORT:-8080}"
 echo "Starting Keycloak on port ${KC_HTTP_PORT}..."
 
 # Start Keycloak in production mode
+# --http-management-port same as http-port to serve health on main port
 exec /opt/keycloak/bin/kc.sh start \
   --optimized \
   --http-port="${KC_HTTP_PORT}" \
+  --http-management-port="${KC_HTTP_PORT}" \
   --hostname-strict=false \
   --http-enabled=true \
   --proxy-headers=xforwarded

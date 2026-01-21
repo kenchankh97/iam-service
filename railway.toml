@@ -6,7 +6,7 @@ dockerfilePath = "Dockerfile"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 numReplicas = 1
-healthcheckPath = "/health"
+healthcheckPath = "/health/ready"
 healthcheckTimeout = 300
 
 # Railway sets PORT dynamically
